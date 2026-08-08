@@ -1,337 +1,1101 @@
-@import url("https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=IM+Fell+English:ital@0;1&display=swap");
+const STATE_KEY = "ruinfall_save_v3";
 
-:root{
-  --bg:#07070b;
-  --bg-2:#12111a;
-  --panel:#12121bcc;
-  --panel-2:#171724e6;
-  --panel-border:#4b3d58;
-  --panel-glow:rgba(200,168,107,.18);
-  --text:#efe7db;
-  --muted:#b8aa99;
-  --accent:#d5b06d;
-  --accent-2:#8f6b3f;
-  --danger:#d56d6d;
-  --success:#79d39a;
-  --shadow:0 20px 50px rgba(0,0,0,.45);
-}
+const ITEM_DEFS = {
+  "Ragged Blade": { type: "weapon", slot: "weapon", bonuses: { Strength: 1 } },
+  "Ashen Charm": { type: "key", keyItem: true },
+  "Lockpicks": { type: "consumable", usable: true },
+  "Healer's Herb": { type: "consumable", usable: true },
+  "Old Map": { type: "key", keyItem: true },
+  "Knight Signet": { type: "key", keyItem: true },
+  "Ashen Relic": { type: "key", keyItem: true }
+};
 
-*{box-sizing:border-box}
+const NPCS = {
+  Mael: { name: "Sister Mael" },
+  Vessa: { name: "Vessa" },
+  Halven: { name: "Sir Halven" },
+  Barkeep: { name: "Barkeep" }
+};
 
-html, body{min-height:100%}
+const STORY = {
+  intro: {
+    id: "intro",
+    title: "Ashes at the Gate",
+    location: "Ruined Gate of Veyr",
+    text: "You wake beneath a shattered archway while the bells of a dead city toll through the fog. A hooded priest searches the road. To the east, a candlelit inn leaks warmth into the rain. To the west, Blackwood Forest snarls in the dark.",
+    choices: [
+      { text: "Approach the priest", next: "priest_meeting" },
+      { text: "Enter the inn", next: "inn_hub" },
+      { text: "Go into Blackwood", next: "woods_edge" }
+    ]
+  },
 
-body{
-  margin:0;
-  color:var(--text);
-  font-family:"IM Fell English", Georgia, "Times New Roman", serif;
-  background:
-    radial-gradient(circle at 20% 0%, rgba(105,74,125,.16), transparent 35%),
-    radial-gradient(circle at 80% 10%, rgba(203,140,70,.10), transparent 28%),
-    linear-gradient(180deg, var(--bg-2) 0%, #09090d 45%, #050507 100%);
-  overflow-x:hidden;
-}
+  priest_meeting: {
+    id: "priest_meeting",
+    title: "Sister Mael",
+    location: "Road of Broken Stones",
+    text: "Sister Mael studies you with tired eyes. She says the Ashen Chapel lost a relic during the night, and the dead have begun to stir around the catacombs.",
+    choices: [
+      {
+        text: "Vow to recover the relic",
+        consequences: {
+          quest: {
+            id: "relic",
+            name: "Recover the Ashen Relic",
+            state: "active",
+            stage: 1,
+            objective: "Find the relic in the catacombs."
+          },
+          relation: { npc: "Mael", delta: 2 },
+          memory: { key: "helped_mael", text: "You promised Sister Mael you would recover the relic." },
+          flag: "helped_mael",
+          item: "Ashen Charm",
+          xp: 5
+        },
+        next: "road_hub"
+      },
+      {
+        text: "Demand payment for danger",
+        check: { stat: "Charisma", dc: 12, success: "mael_pay_success", fail: "mael_pay_fail" },
+        successConsequences: { gold: 15, relation: { npc: "Mael", delta: 1 }, memory: { key: "mael_paid", text: "Sister Mael paid you and marked you as useful." } },
+        failureConsequences: { relation: { npc: "Mael", delta: -1 } }
+      },
+      { text: "Leave for the crossroads", next: "road_hub" }
+    ]
+  },
 
-.background{
-  position:fixed;
-  inset:0;
-  background:
-    linear-gradient(rgba(0,0,0,.38), rgba(0,0,0,.72)),
-    url("https://images.unsplash.com/photo-1511818966892-d7d671e672a2?auto=format&fit=crop&w=1600&q=80") center/cover no-repeat;
-  opacity:.14;
-  pointer-events:none;
-  filter:sepia(.18) contrast(1.05) saturate(.9);
-}
+  mael_pay_success: {
+    id: "mael_pay_success",
+    title: "A Reluctant Blessing",
+    location: "Road of Broken Stones",
+    text: "Mael grudgingly pays you and slips a prayer into your palm.",
+    choices: [
+      { text: "Accept the warning and move on", next: "road_hub" }
+    ]
+  },
 
-.ambient{
-  position:fixed;
-  inset:auto;
-  border-radius:50%;
-  pointer-events:none;
-  filter:blur(80px);
-  opacity:.24;
-}
+  mael_pay_fail: {
+    id: "mael_pay_fail",
+    title: "Faith Unmoved",
+    location: "Road of Broken Stones",
+    text: "Mael refuses your demand. A grave-ghoul crawls from a ditch, drawn by your raised voice.",
+    choices: [
+      { text: "Flee to the crossroads", consequences: { hp: -2, relation: { npc: "Mael", delta: -1 } }, next: "road_hub" }
+    ]
+  },
 
-.ambient-1{
-  width:320px;
-  height:320px;
-  top:-90px;
-  left:-60px;
-  background:rgba(125,92,160,.22);
-}
+  inn_hub: {
+    id: "inn_hub",
+    title: "The Hollow Cup",
+    location: "The Hollow Cup Inn",
+    text: "The inn smells of smoke and old fear. A barkeep watches your hands.",
+    choices: [
+      {
+        text: "Buy rumors for 5 gold",
+        requirements: { goldGte: 5 },
+        consequences: {
+          gold: -5,
+          flag: "knows_catacombs",
+          memory: { key: "rumors", text: "You learned rumors about the catacombs and the corpse-cart." }
+        },
+        next: "inn_rumors"
+      },
+      { text: "Ask about the city", next: "inn_rumors_free" },
+      { text: "Return to the crossroads", next: "road_hub" }
+    ]
+  },
 
-.ambient-2{
-  width:280px;
-  height:280px;
-  right:-80px;
-  bottom:-90px;
-  background:rgba(180,120,58,.18);
-}
+  inn_rumors: {
+    id: "inn_rumors",
+    title: "Rumors in the Smoke",
+    location: "The Hollow Cup Inn",
+    text: "The barkeep whispers that the catacombs answer to ash-marked blood. He also mentions a corpse-cart that passes the ash road after midnight.",
+    choices: [{ text: "Return to the crossroads", next: "road_hub" }]
+  },
 
-.app{
-  position:relative;
-  max-width:1440px;
-  margin:0 auto;
-  padding:24px;
-}
+  inn_rumors_free: {
+    id: "inn_rumors_free",
+    title: "Free Gossip",
+    location: "The Hollow Cup Inn",
+    text: "The barkeep says the chapel gate opens for those with a signet, or those bold enough to sneak past the sentry.",
+    choices: [
+      {
+        text: "Listen carefully",
+        consequences: { flag: "heard_gate_secret", memory: { key: "gate_secret", text: "You learned a rumor about the chapel gate." } },
+        next: "road_hub"
+      }
+    ]
+  },
 
-.panel{
-  background:linear-gradient(180deg, var(--panel), var(--panel-2));
-  border:1px solid rgba(255,255,255,.06);
-  border-color:var(--panel-border);
-  border-radius:18px;
-  box-shadow:var(--shadow), inset 0 1px 0 rgba(255,255,255,.04);
-  backdrop-filter:blur(10px);
-}
+  road_hub: {
+    id: "road_hub",
+    title: "Crossroads of Veyr",
+    location: "Road to Veyr",
+    text: "North lies the chapel district, east the inn, west the Blackwood trees, and south the ash road.",
+    choices: [
+      { text: "Go to the chapel district", requirements: { anyFlags: ["heard_gate_secret", "helped_mael"] }, next: "chapel_gate" },
+      { text: "Return to the inn", next: "inn_hub" },
+      { text: "Enter Blackwood", next: "woods_edge" },
+      { text: "Take the ash road", next: "ash_road" }
+    ]
+  },
 
-.topbar{
-  display:flex;
-  justify-content:space-between;
-  align-items:center;
-  gap:16px;
-  padding:18px 20px;
-  margin-bottom:18px;
-}
+  woods_edge: {
+    id: "woods_edge",
+    title: "Blackwood Edge",
+    location: "Blackwood Forest",
+    text: "The forest is dense with mist and old malice. A wounded knight leans against a tree, breathing through clenched teeth.",
+    choices: [
+      { text: "Help the wounded knight", next: "sir_halven" },
+      { text: "Press deeper into Blackwood", check: { stat: "Dexterity", dc: 11, success: "woods_path", fail: "woods_lost" } },
+      { text: "Return to the road", next: "road_hub" }
+    ]
+  },
 
-.brand h1,
-h2,
-h3{
-  font-family:"Cinzel", serif;
-  letter-spacing:.04em;
-}
+  sir_halven: {
+    id: "sir_halven",
+    title: "Sir Halven",
+    location: "Blackwood Forest",
+    text: "Sir Halven, a knight of the chapel order, hands you a signet ring. He asks you to carry word to the chapel if he survives the night.",
+    choices: [
+      {
+        text: "Promise to help",
+        consequences: {
+          relation: { npc: "Halven", delta: 3 },
+          item: "Knight Signet",
+          flag: "chapel_access",
+          memory: { key: "halven_promised", text: "You promised Sir Halven you'd carry his message." }
+        },
+        next: "woods_edge"
+      },
+      {
+        text: "Take the ring and flee",
+        consequences: {
+          item: "Knight Signet",
+          relation: { npc: "Halven", delta: -3 },
+          memory: { key: "stole_signet", text: "You betrayed Sir Halven and took his signet." }
+        },
+        next: "woods_edge"
+      }
+    ]
+  },
 
-h1,h2,h3{margin:0 0 10px}
+  woods_path: {
+    id: "woods_path",
+    title: "Hidden Trail",
+    location: "Blackwood Forest",
+    text: "You find a hidden trail and a half-buried shrine stone.",
+    choices: [
+      { text: "Take the shrine stone", consequences: { item: "Old Map", flag: "found_map", memory: { key: "found_map", text: "You found a map hidden in Blackwood." } }, next: "road_hub" },
+      { text: "Continue onward", next: "shrine" }
+    ]
+  },
 
-h1{
-  font-size:2.1rem;
-  text-transform:uppercase;
-}
+  shrine: {
+    id: "shrine",
+    title: "Shrine of the Root",
+    location: "Blackwood Depths",
+    text: "A broken shrine pulses with faint blue light. The air smells of wet ash.",
+    choices: [
+      {
+        text: "Pray at the shrine",
+        consequences: { hp: 4, memory: { key: "shrine_prayed", text: "You prayed at the shrine of the root." }, xp: 3 },
+        next: "road_hub"
+      },
+      {
+        text: "Desecrate the shrine",
+        consequences: { hp: -3, gold: 12, flag: "desecrated_shrine", memory: { key: "shrine_desecrated", text: "You desecrated the shrine and took its offerings." } },
+        next: "road_hub"
+      }
+    ]
+  },
 
-.subtitle{
-  margin:0;
-  color:var(--muted);
-  letter-spacing:.03em;
-}
+  woods_lost: {
+    id: "woods_lost",
+    title: "Lost in Blackwood",
+    location: "Blackwood Forest",
+    text: "The forest shifts around you. You lose the path and stumble back out with scratches and cold fear.",
+    choices: [
+      { text: "Escape the woods", consequences: { hp: -3 }, next: "road_hub" }
+    ]
+  },
 
-.save-actions,
-.choices{
-  display:flex;
-  flex-wrap:wrap;
-  gap:10px;
-}
+  ash_road: {
+    id: "ash_road",
+    title: "Ash Road",
+    location: "South Road",
+    text: "The road south is lined with dead carts and broken prayer stones. A lantern flickers in the fog.",
+    choices: [
+      { text: "Inspect the lantern", next: "lantern_choice" },
+      { text: "Hide and wait", check: { stat: "Dexterity", dc: 11, success: "hidden_watch", fail: "bandit_ambush" } },
+      { text: "Push onward", next: "corpse_cart" }
+    ]
+  },
 
-button{
-  appearance:none;
-  border:1px solid rgba(213,176,109,.35);
-  border-bottom-color:rgba(120,92,58,.8);
-  background:
-    linear-gradient(180deg, rgba(48,37,24,.96), rgba(23,18,15,.98));
-  color:var(--text);
-  padding:11px 15px;
-  border-radius:12px;
-  cursor:pointer;
-  font:inherit;
-  box-shadow:0 8px 18px rgba(0,0,0,.25), inset 0 1px 0 rgba(255,255,255,.05);
-  transition:transform .15s ease, border-color .15s ease, box-shadow .15s ease, filter .15s ease;
-}
+  lantern_choice: {
+    id: "lantern_choice",
+    title: "Lantern in the Fog",
+    location: "South Road",
+    text: "A pilgrim begs for protection from the marsh.",
+    choices: [
+      {
+        text: "Escort the pilgrim",
+        consequences: {
+          relation: { npc: "Vessa", delta: 1 },
+          flag: "knows_mire",
+          memory: { key: "pilgrim", text: "A pilgrim pointed you toward the mire." },
+          xp: 3
+        },
+        next: "road_hub"
+      },
+      {
+        text: "Rob him",
+        check: { stat: "Strength", dc: 10, success: "rob_pilgrim", fail: "pilgrim_curse" }
+      }
+    ]
+  },
 
-button:hover{
-  transform:translateY(-1px);
-  border-color:rgba(213,176,109,.8);
-  box-shadow:0 12px 22px rgba(0,0,0,.3), 0 0 0 1px rgba(213,176,109,.08) inset;
-  filter:brightness(1.06);
-}
+  rob_pilgrim: {
+    id: "rob_pilgrim",
+    title: "Stolen Mercy",
+    location: "South Road",
+    text: "You take the pilgrim's satchel and leave him trembling in the rain.",
+    choices: [
+      {
+        text: "Keep the spoils",
+        consequences: { gold: 10, item: "Healer's Herb", reputation: -1, memory: { key: "robbed_pilgrim", text: "You robbed a pilgrim on the road." } },
+        next: "road_hub"
+      }
+    ]
+  },
 
-button:active{
-  transform:translateY(1px) scale(.99);
-}
+  pilgrim_curse: {
+    id: "pilgrim_curse",
+    title: "The Pilgrim's Curse",
+    location: "South Road",
+    text: "The pilgrim spits a prayer and flees. Your hand trembles with a sudden ache.",
+    choices: [
+      { text: "Continue anyway", consequences: { hp: -2 }, next: "road_hub" }
+    ]
+  },
 
-button:disabled{
-  opacity:.5;
-  cursor:not-allowed;
-  transform:none;
-}
+  hidden_watch: {
+    id: "hidden_watch",
+    title: "Watching from the Stones",
+    location: "South Road",
+    text: "You remain hidden as ash bandits pass by. One drops a map.",
+    choices: [
+      {
+        text: "Take the map",
+        consequences: { item: "Old Map", flag: "found_map", xp: 4, memory: { key: "map_found", text: "You found a map on the road." } },
+        next: "road_hub"
+      }
+    ]
+  },
 
-button.primary{
-  background:linear-gradient(180deg, rgba(108,78,38,.98), rgba(54,38,20,.98));
-  border-color:rgba(213,176,109,.55);
-}
+  bandit_ambush: {
+    id: "bandit_ambush",
+    title: "Road Ambush",
+    location: "South Road",
+    text: "Bandits spring from the road edge, blades wet with old blood.",
+    choices: [
+      {
+        text: "Pay them off with 8 gold",
+        requirements: { goldGte: 8 },
+        consequences: { gold: -8, reputation: -1, memory: { key: "paid_bandits", text: "You paid bandits to leave you alone." } },
+        next: "road_hub"
+      },
+      {
+        text: "Fight them off",
+        check: { stat: "Strength", dc: 12, success: "bandits_defeated", fail: "bandits_hurt" }
+      }
+    ]
+  },
 
-.layout{
-  display:grid;
-  grid-template-columns:280px minmax(0, 1fr) 280px;
-  gap:16px;
-}
+  bandits_defeated: {
+    id: "bandits_defeated",
+    title: "Bandits Broken",
+    location: "South Road",
+    text: "You drive them off and search their bodies.",
+    choices: [
+      { text: "Take their coin", consequences: { gold: 14, item: "Lockpicks", xp: 8 }, next: "road_hub" }
+    ]
+  },
 
-.stats-panel,
-.inventory-panel,
-.story-panel{
-  padding:18px;
-}
+  bandits_hurt: {
+    id: "bandits_hurt",
+    title: "Wounded on the Road",
+    location: "South Road",
+    text: "You win the struggle, but not cleanly.",
+    choices: [
+      { text: "Stagger away", consequences: { hp: -4, gold: 6 }, next: "road_hub" }
+    ]
+  },
 
-.story-panel{
-  min-height:74vh;
-}
+  corpse_cart: {
+    id: "corpse_cart",
+    title: "Corpse Cart",
+    location: "Ash Road",
+    text: "A corpse-cart carrying pyre-bound bodies, coin, and locked crates blocks the road. A guard lantern swings near the driver seat.",
+    choices: [
+      { text: "Pick the lock", check: { stat: "Dexterity", dc: 10, success: "cart_success", fail: "cart_fail" } },
+      { text: "Ambush the driver", check: { stat: "Strength", dc: 12, success: "cart_ambush", fail: "cart_fail" } }
+    ]
+  },
 
-.story-meta{
-  display:flex;
-  justify-content:space-between;
-  gap:12px;
-  color:var(--muted);
-  font-size:.95rem;
-  margin-bottom:12px;
-  text-transform:uppercase;
-  letter-spacing:.06em;
-}
+  cart_success: {
+    id: "cart_success",
+    title: "Heist Complete",
+    location: "Ash Road",
+    text: "You slip open the crate and steal supplies before the guards notice.",
+    choices: [
+      {
+        text: "Take the loot and leave",
+        consequences: {
+          gold: 20,
+          item: "Lockpicks",
+          relation: { npc: "Vessa", delta: 1 },
+          flag: "cart_raided",
+          xp: 8
+        },
+        next: "road_hub"
+      }
+    ]
+  },
 
-#eventTitle{
-  font-size:1.8rem;
-  margin-bottom:12px;
-}
+  cart_ambush: {
+    id: "cart_ambush",
+    title: "Silent Strike",
+    location: "Ash Road",
+    text: "You catch the driver off guard and force the cart to stop.",
+    choices: [
+      {
+        text: "Take the spoils",
+        consequences: { gold: 15, items: ["Lockpicks", "Healer's Herb"], flag: "cart_raided", relation: { npc: "Vessa", delta: 1 }, xp: 10 },
+        next: "road_hub"
+      }
+    ]
+  },
 
-.story-text{
-  line-height:1.75;
-  font-size:1.08rem;
-  min-height:96px;
-  margin:0;
-  color:#f1e8da;
-}
+  cart_fail: {
+    id: "cart_fail",
+    title: "Caught in the Act",
+    location: "Ash Road",
+    text: "A guard spots you. Steel flashes in the moonlight as the corpse-cart lurches forward.",
+    choices: [
+      { text: "Flee wounded", consequences: { hp: -5, gold: -3 }, next: "road_hub" }
+    ]
+  },
 
-.choices{
-  margin:18px 0 14px;
-}
+  chapel_gate: {
+    id: "chapel_gate",
+    title: "The Chapel Gate",
+    location: "Ashen Chapel District",
+    text: "The chapel stands blackened and cracked. An iron gate blocks the stair to the catacombs.",
+    choices: [
+      {
+        text: "Show Sir Halven's signet",
+        requirements: { anyFlags: ["chapel_access"] },
+        consequences: { relation: { npc: "Mael", delta: 1 }, flag: "gate_opened_by_signet", xp: 4 },
+        next: "catacombs_entry"
+      },
+      {
+        text: "Bribe the sentry",
+        requirements: { goldGte: 10 },
+        consequences: { gold: -10, flag: "gate_bribed", xp: 4 },
+        next: "catacombs_entry"
+      },
+      { text: "Sneak inside", check: { stat: "Dexterity", dc: 13, success: "catacombs_entry", fail: "gate_fail" } }
+    ]
+  },
 
-.choice{
-  width:100%;
-  text-align:left;
-}
+  gate_fail: {
+    id: "gate_fail",
+    title: "Gate Refused",
+    location: "Ashen Chapel District",
+    text: "The sentry shoves you back and calls for help.",
+    choices: [
+      { text: "Retreat", consequences: { hp: -2 }, next: "road_hub" }
+    ]
+  },
 
-.choice small{
-  display:block;
-  color:var(--muted);
-  margin-top:4px;
-}
+  catacombs_entry: {
+    id: "catacombs_entry",
+    title: "Catacomb Mouth",
+    location: "Beneath Veyr",
+    text: "The air turns cold. Bone lanterns and carved doors line the corridor.",
+    choices: [
+      { text: "Solve the seal", check: { stat: "Intelligence", dc: 12, success: "gate_open", fail: "catacombs_fail" } },
+      { text: "Brute force the gate", check: { stat: "Strength", dc: 15, success: "gate_open", fail: "catacombs_fail" } }
+    ]
+  },
 
-.list{
-  display:grid;
-  gap:8px;
-  margin-bottom:14px;
-}
+  catacombs_fail: {
+    id: "catacombs_fail",
+    title: "The Seal Holds",
+    location: "Beneath Veyr",
+    text: "The seal rejects your attempt. You are forced back into the corridor.",
+    choices: [
+      { text: "Try again later", consequences: { hp: -2 }, next: "road_hub" }
+    ]
+  },
 
-.item,
-.quest,
-.rel,
-.memory-item{
-  padding:9px 11px;
-  border-radius:12px;
-  background:rgba(255,255,255,.03);
-  border:1px solid rgba(255,255,255,.06);
-  margin-bottom:8px;
-}
+  gate_open: {
+    id: "gate_open",
+    title: "The Gate Opens",
+    location: "Beneath Veyr",
+    text: "The seal yields, revealing a forgotten chamber where the Ashen Relic rests on a stone plinth.",
+    choices: [
+      {
+        text: "Claim the relic",
+        consequences: {
+          item: "Ashen Relic",
+          flag: "relic_found",
+          quest: {
+            id: "relic",
+            name: "Recover the Ashen Relic",
+            state: "completed",
+            stage: 2,
+            objective: "Return the relic or decide its fate."
+          },
+          xp: 12,
+          memory: { key: "found_relic", text: "You claimed the Ashen Relic from the catacombs." }
+        },
+        next: "ending_relic"
+      },
+      {
+        text: "Leave it and return",
+        consequences: { reputation: 1, memory: { key: "left_relic", text: "You left the Ashen Relic untouched." } },
+        next: "ending_walkaway"
+      }
+    ]
+  },
 
-.item{
-  color:#f2eadf;
-}
+  ending_relic: {
+    id: "ending_relic",
+    title: "Ending: Relic Reclaimed",
+    location: "Beneath Veyr",
+    text: "You return from the catacombs with the Ashen Relic. The chapel breathes again, and Sister Mael remembers your name.",
+    ending: true
+  },
 
-.good{color:var(--success)}
-.bad{color:var(--danger)}
+  ending_walkaway: {
+    id: "ending_walkaway",
+    title: "Ending: The Road Continues",
+    location: "Beneath Veyr",
+    text: "You leave the relic behind and walk back into the ruined city. The night is not over, but your path has changed.",
+    ending: true
+  },
 
-.log-wrap{
-  margin-top:10px;
-}
+  test_hub: {
+    id: "test_hub",
+    title: "Old Road Shrine",
+    location: "Developer Test Route",
+    text: "A hidden shrine used for testing branching, checks, consequences, and returns.",
+    choices: [
+      { text: "Enter the ruined camp", next: "test_camp" },
+      { text: "Follow the blood trail", next: "test_trail" },
+      { text: "Return to the crossroads", next: "road_hub" }
+    ]
+  },
 
-.log{
-  max-height:240px;
-  overflow:auto;
-  font-size:.95rem;
-  color:var(--muted);
-  display:grid;
-  gap:6px;
-  padding-right:4px;
-}
+  test_camp: {
+    id: "test_camp",
+    title: "Ruined Camp",
+    location: "Developer Test Route",
+    text: "A collapsed camp with one intact chest and a nervy look to the shadows.",
+    choices: [
+      {
+        text: "Open the chest",
+        check: { stat: "Dexterity", dc: 10, success: "test_chest_success", fail: "test_chest_fail" }
+      },
+      {
+        text: "Search for clues",
+        consequences: { flag: "test_clue", memory: { key: "test_clue", text: "You found a clue at the ruined camp." } },
+        next: "test_hall"
+      }
+    ]
+  },
 
-.dice-box{
-  display:inline-flex;
-  flex-direction:column;
-  align-items:center;
-  justify-content:center;
-  min-width:140px;
-  padding:14px 16px;
-  border:1px solid rgba(213,176,109,.35);
-  border-radius:16px;
-  background:linear-gradient(180deg, rgba(16,13,18,.85), rgba(8,8,10,.92));
-  margin:8px 0 16px;
-  box-shadow:0 0 24px rgba(213,176,109,.08);
-}
+  test_chest_success: {
+    id: "test_chest_success",
+    title: "Chest Opened",
+    location: "Developer Test Route",
+    text: "The lid opens cleanly.",
+    choices: [
+      {
+        text: "Take the contents",
+        consequences: { gold: 5, item: "Lockpicks", xp: 2 },
+        next: "test_hall"
+      }
+    ]
+  },
 
-.dice-label{
-  color:var(--muted);
-  font-size:.9rem;
-  letter-spacing:.05em;
-  text-transform:uppercase;
-}
+  test_chest_fail: {
+    id: "test_chest_fail",
+    title: "Chest Trap",
+    location: "Developer Test Route",
+    text: "A needle trap snaps out from the lock.",
+    choices: [
+      { text: "Bandage the wound", consequences: { hp: -1 }, next: "test_hall" }
+    ]
+  },
 
-.dice-result{
-  font-size:2.5rem;
-  color:var(--accent);
-  font-weight:700;
-  line-height:1;
-}
+  test_trail: {
+    id: "test_trail",
+    title: "Blood Trail",
+    location: "Developer Test Route",
+    text: "The trail leads into a narrow passage.",
+    choices: [
+      { text: "Sneak through", check: { stat: "Dexterity", dc: 11, success: "test_sneak_success", fail: "test_sneak_fail" } },
+      { text: "Force the gate", check: { stat: "Strength", dc: 12, success: "test_force_success", fail: "test_force_fail" } }
+    ]
+  },
 
-.hidden{display:none}
+  test_sneak_success: {
+    id: "test_sneak_success",
+    title: "Silent Passage",
+    location: "Developer Test Route",
+    text: "You move without being seen.",
+    choices: [
+      { text: "Continue deeper", next: "test_hall" }
+    ]
+  },
 
-#notifications{
-  margin-top:14px;
-  display:grid;
-  gap:8px;
-}
+  test_sneak_fail: {
+    id: "test_sneak_fail",
+    title: "Spotted",
+    location: "Developer Test Route",
+    text: "A watcher notices you.",
+    choices: [
+      { text: "Retreat quickly", consequences: { hp: -2 }, next: "test_hall" }
+    ]
+  },
 
-#notifications .item{
-  border-color:rgba(213,176,109,.18);
-}
+  test_force_success: {
+    id: "test_force_success",
+    title: "Gate Broken",
+    location: "Developer Test Route",
+    text: "The gate gives way.",
+    choices: [
+      { text: "Take the shortcut", consequences: { xp: 3 }, next: "test_hall" }
+    ]
+  },
 
-#status .item:first-child{
-  font-size:1.02rem;
-  color:var(--accent);
-}
+  test_force_fail: {
+    id: "test_force_fail",
+    title: "Bruised Knuckles",
+    location: "Developer Test Route",
+    text: "The gate does not move.",
+    choices: [
+      { text: "Fall back", consequences: { hp: -3 }, next: "test_hall" }
+    ]
+  },
 
-#gold .item{
-  font-size:1.15rem;
-  color:var(--accent);
-}
+  test_hall: {
+    id: "test_hall",
+    title: "Broken Hall",
+    location: "Developer Test Route",
+    text: "A central hall where your path can split again.",
+    choices: [
+      { text: "Open the sealed door", check: { stat: "Intelligence", dc: 12, success: "test_reconnect", fail: "test_sealed_fail" } },
+      { text: "Go back to camp", next: "test_camp" },
+      { text: "Return to the road", next: "road_hub" }
+    ]
+  },
 
-@media (max-width: 1100px){
-  .layout{
-    grid-template-columns:1fr;
+  test_sealed_fail: {
+    id: "test_sealed_fail",
+    title: "Sealed Door Holds",
+    location: "Developer Test Route",
+    text: "The runes resist you.",
+    choices: [
+      { text: "Try a different route", next: "test_reconnect" }
+    ]
+  },
+
+  test_reconnect: {
+    id: "test_reconnect",
+    title: "Hidden Exit",
+    location: "Developer Test Route",
+    text: "You find a passage that loops back to the road.",
+    choices: [
+      {
+        text: "Return to the crossroads",
+        consequences: { memory: { key: "test_route", text: "You navigated the test route and returned safely." } },
+        next: "road_hub"
+      }
+    ]
+  }
+};
+
+function validateStoryGraph() {
+  const errors = [];
+  const ids = new Set(Object.keys(STORY));
+
+  for (const [id, ev] of Object.entries(STORY)) {
+    if (!ev || ev.id !== id) errors.push(`Event key "${id}" has missing or mismatched id field.`);
+    const choices = Array.isArray(ev.choices) ? ev.choices : [];
+    for (const [index, choice] of choices.entries()) {
+      const pathBase = `${id}.choices[${index}]`;
+      if (choice.next && !ids.has(choice.next)) errors.push(`Broken destination: ${pathBase}.next -> "${choice.next}"`);
+      if (choice.check) {
+        if (choice.check.success && !ids.has(choice.check.success)) errors.push(`Broken destination: ${pathBase}.check.success -> "${choice.check.success}"`);
+        if (choice.check.fail && !ids.has(choice.check.fail)) errors.push(`Broken destination: ${pathBase}.check.fail -> "${choice.check.fail}"`);
+        if (choice.check.critSuccess && !ids.has(choice.check.critSuccess)) errors.push(`Broken destination: ${pathBase}.check.critSuccess -> "${choice.check.critSuccess}"`);
+        if (choice.check.critFailure && !ids.has(choice.check.critFailure)) errors.push(`Broken destination: ${pathBase}.check.critFailure -> "${choice.check.critFailure}"`);
+      }
+      if (choice.successConsequences?.next && !ids.has(choice.successConsequences.next)) errors.push(`Broken destination: ${pathBase}.successConsequences.next -> "${choice.successConsequences.next}"`);
+      if (choice.failureConsequences?.next && !ids.has(choice.failureConsequences.next)) errors.push(`Broken destination: ${pathBase}.failureConsequences.next -> "${choice.failureConsequences.next}"`);
+    }
   }
 
-  .story-panel{
-    min-height:auto;
+  const inbound = new Map([...ids].map((k) => [k, 0]));
+  for (const ev of Object.values(STORY)) {
+    for (const choice of ev.choices || []) {
+      const mark = (dest) => { if (dest && inbound.has(dest)) inbound.set(dest, inbound.get(dest) + 1); };
+      mark(choice.next);
+      mark(choice.successConsequences?.next);
+      mark(choice.failureConsequences?.next);
+      mark(choice.check?.success);
+      mark(choice.check?.fail);
+      mark(choice.check?.critSuccess);
+      mark(choice.check?.critFailure);
+    }
+  }
+
+  if (errors.length) {
+    console.error("[Ruinfall] Story validation errors:");
+    errors.forEach((err) => console.error(" - " + err));
+  } else {
+    console.info("[Ruinfall] Story validation passed:", Object.keys(STORY).length, "events");
+  }
+
+  const unreachable = [...inbound.entries()].filter(([id, count]) => count === 0 && id !== "intro");
+  if (unreachable.length) {
+    console.warn("[Ruinfall] Potentially unreachable events:", unreachable.map(([id]) => id));
+  }
+
+  return { errors, unreachable };
+}
+
+const defaultState = () => ({
+  currentEventId: "intro",
+  hp: 30,
+  maxHp: 30,
+  level: 1,
+  xp: 0,
+  xpToNext: 20,
+  stats: {
+    Strength: 2,
+    Dexterity: 2,
+    Intelligence: 2,
+    Constitution: 2,
+    Luck: 2,
+    Charisma: 2,
+    Resolve: 2
+  },
+  baseStats: {
+    Strength: 2,
+    Dexterity: 2,
+    Intelligence: 2,
+    Constitution: 2,
+    Luck: 2,
+    Charisma: 2,
+    Resolve: 2
+  },
+  gold: 10,
+  inventory: ["Ragged Blade"],
+  equipment: { weapon: "Ragged Blade", armor: null, trinket: null },
+  quests: [],
+  relationships: { Mael: 0, Vessa: 0, Halven: 0, Barkeep: 0 },
+  reputation: 0,
+  flags: [],
+  memories: [],
+  log: ["You awaken in the ruins of Veyr."],
+  notifications: [],
+  lastRoll: "",
+  statusEffects: []
+});
+
+let state = loadGame() || defaultState();
+
+const el = (id) => document.getElementById(id);
+
+function hasFlag(flag) {
+  return state.flags.includes(flag);
+}
+
+function addFlag(flag) {
+  if (!hasFlag(flag)) state.flags.push(flag);
+}
+
+function hasMemory(key) {
+  return state.memories.some((m) => m.key === key);
+}
+
+function addMemory(key, text) {
+  if (!hasMemory(key)) {
+    state.memories.push({ key, text });
+    notify(`Memory unlocked: ${text}`);
   }
 }
 
-@media (max-width: 720px){
-  .app{
-    padding:14px;
-  }
+function notify(text) {
+  state.notifications.unshift(text);
+  state.notifications = state.notifications.slice(0, 8);
+}
 
-  .topbar{
-    flex-direction:column;
-    align-items:flex-start;
-  }
+function addLog(text) {
+  state.log.unshift(text);
+  state.log = state.log.slice(0, 25);
+}
 
-  .save-actions{
-    width:100%;
-  }
+function statValue(stat) {
+  const base = state.baseStats[stat] || 0;
+  const eq = Object.values(state.equipment).reduce((sum, itemName) => {
+    if (!itemName) return sum;
+    const def = ITEM_DEFS[itemName];
+    return sum + (def?.bonuses?.[stat] || 0);
+  }, 0);
+  return base + eq;
+}
 
-  .save-actions button{
-    flex:1 1 0;
-  }
+function rollD20(mod = 0) {
+  const d20 = Math.ceil(Math.random() * 20);
+  return { d20, total: d20 + mod };
+}
 
-  .story-meta{
-    flex-direction:column;
+function meetsRequirements(req = {}) {
+  if (req.goldGte != null && state.gold < req.goldGte) return false;
+  if (req.hpGte != null && state.hp < req.hpGte) return false;
+  if (req.levelGte != null && state.level < req.levelGte) return false;
+  if (req.flag && !hasFlag(req.flag)) return false;
+  if (Array.isArray(req.flags) && !req.flags.every(hasFlag)) return false;
+  if (Array.isArray(req.anyFlags) && !req.anyFlags.some(hasFlag)) return false;
+  if (Array.isArray(req.notFlags) && req.notFlags.some(hasFlag)) return false;
+  if (req.memory && !hasMemory(req.memory)) return false;
+  if (req.item && !state.inventory.includes(req.item)) return false;
+  if (Array.isArray(req.items) && !req.items.every((item) => state.inventory.includes(item))) return false;
+  if (Array.isArray(req.anyItem) && !req.anyItem.some((item) => state.inventory.includes(item))) return false;
+  if (req.quest) {
+    const q = state.quests.find((x) => x.id === req.quest.id);
+    if (!q) return false;
+    if (req.quest.state && q.state !== req.quest.state) return false;
+    if (req.quest.stage != null && q.stage !== req.quest.stage) return false;
   }
+  if (req.relationship) {
+    const value = state.relationships[req.relationship.npc] || 0;
+    if (req.relationship.gte != null && value < req.relationship.gte) return false;
+    if (req.relationship.lte != null && value > req.relationship.lte) return false;
+  }
+  if (req.statGte) {
+    for (const [stat, value] of Object.entries(req.statGte)) {
+      if (statValue(stat) < value) return false;
+    }
+  }
+  return true;
+}
 
-  h1{
-    font-size:1.8rem;
+function addItem(name) {
+  if (!state.inventory.includes(name)) {
+    state.inventory.push(name);
+    notify(`Item gained: ${name}`);
   }
 }
+
+function removeItem(name) {
+  const idx = state.inventory.indexOf(name);
+  if (idx >= 0) state.inventory.splice(idx, 1);
+}
+
+function changeRelation(npc, delta) {
+  if (!(npc in state.relationships)) state.relationships[npc] = 0;
+  state.relationships[npc] += delta;
+  notify(`${NPCS[npc]?.name || npc} relationship ${delta >= 0 ? "+" : ""}${delta}`);
+}
+
+function changeQuest(q) {
+  const existing = state.quests.find((x) => x.id === q.id);
+  if (!existing) state.quests.push({ ...q });
+  else Object.assign(existing, q);
+  notify(`Quest updated: ${q.name || q.id}`);
+}
+
+function gainGold(amount) {
+  state.gold = Math.max(0, state.gold + amount);
+  notify(`${amount >= 0 ? "Gained" : "Lost"} ${Math.abs(amount)} gold`);
+}
+
+function changeHP(amount) {
+  state.hp = Math.max(0, Math.min(state.maxHp, state.hp + amount));
+  notify(`${amount >= 0 ? "Recovered" : "Lost"} ${Math.abs(amount)} HP`);
+}
+
+function gainXP(amount) {
+  state.xp += amount;
+  notify(`Gained ${amount} XP`);
+  while (state.xp >= state.xpToNext) {
+    state.xp -= state.xpToNext;
+    state.level += 1;
+    state.xpToNext = Math.floor(state.xpToNext * 1.35);
+    state.maxHp += 4;
+    state.hp = state.maxHp;
+    state.baseStats.Strength += 1;
+    state.baseStats.Constitution += 1;
+    notify(`Level up! You are now level ${state.level}.`);
+  }
+}
+
+function applyConsequences(cons = {}) {
+  if (cons.hp != null) changeHP(cons.hp);
+  if (cons.gold != null) gainGold(cons.gold);
+  if (cons.xp != null) gainXP(cons.xp);
+  if (cons.flag) addFlag(cons.flag);
+  if (Array.isArray(cons.flags)) cons.flags.forEach(addFlag);
+  if (cons.memory) addMemory(cons.memory.key, cons.memory.text);
+  if (cons.relation) changeRelation(cons.relation.npc, cons.relation.delta);
+  if (cons.quest) changeQuest(cons.quest);
+  if (cons.item) addItem(cons.item);
+  if (Array.isArray(cons.items)) cons.items.forEach(addItem);
+  if (cons.removeItem) removeItem(cons.removeItem);
+  if (cons.equip) state.equipment.weapon = cons.equip;
+  if (cons.reputation != null) {
+    state.reputation = (state.reputation || 0) + cons.reputation;
+    notify(`Reputation ${cons.reputation >= 0 ? "+" : ""}${cons.reputation}`);
+  }
+}
+
+function showEvent(id) {
+  if (STORY[id]) {
+    state.currentEventId = id;
+    return true;
+  }
+  console.warn(`[Ruinfall] Attempted to show missing event: "${id}"`);
+  state.currentEventId = "intro";
+  return false;
+}
+
+function startNewGame() {
+  state = defaultState();
+  saveGame();
+  render();
+}
+
+function resolveCheck(choice) {
+  const mod = statValue(choice.check.stat);
+  const { d20, total } = rollD20(mod);
+  const criticalSuccess = d20 === 20;
+  const criticalFailure = d20 === 1;
+  const success = criticalSuccess || total >= choice.check.dc;
+  const outcome = criticalSuccess ? "CRITICAL SUCCESS" : criticalFailure ? "CRITICAL FAILURE" : success ? "SUCCESS" : "FAILURE";
+  state.lastRoll = `${outcome} — ${d20} + ${mod} = ${total} vs DC ${choice.check.dc}`;
+  addLog(state.lastRoll);
+
+  if (criticalSuccess && choice.check.critSuccess) {
+    if (choice.critSuccessConsequences) applyConsequences(choice.critSuccessConsequences);
+    showEvent(choice.check.critSuccess);
+    addLog("Critical success.");
+  } else if (criticalFailure && choice.check.critFailure) {
+    if (choice.critFailureConsequences) applyConsequences(choice.critFailureConsequences);
+    showEvent(choice.check.critFailure);
+    addLog("Critical failure.");
+  } else if (success) {
+    if (choice.successConsequences) applyConsequences(choice.successConsequences);
+    if (choice.successConsequences?.next) showEvent(choice.successConsequences.next);
+    else showEvent(choice.check.success || choice.next);
+    addLog(criticalSuccess ? "Critical success." : "Success.");
+  } else {
+    if (choice.failureConsequences) applyConsequences(choice.failureConsequences);
+    if (choice.failureConsequences?.next) showEvent(choice.failureConsequences.next);
+    else showEvent(choice.check.fail || choice.next);
+    addLog(criticalFailure ? "Critical failure." : "Failure.");
+  }
+}
+
+function choose(choice) {
+  if (choice.check) {
+    resolveCheck(choice);
+    saveGame();
+    render();
+    return;
+  }
+
+  if (choice.consequences) applyConsequences(choice.consequences);
+  if (choice.next) showEvent(choice.next);
+  addLog(choice.text);
+  saveGame();
+  render();
+}
+
+function renderChoices(ev) {
+  const box = el("choices");
+  box.innerHTML = "";
+
+  if (ev.ending) {
+    const restart = document.createElement("button");
+    restart.className = "choice";
+    restart.textContent = "Start New Game";
+    restart.onclick = startNewGame;
+    box.appendChild(restart);
+    return;
+  }
+
+  const available = (ev.choices || []).filter((choice) => meetsRequirements(choice.requirements || {}));
+  if (!available.length) {
+    const fallback = document.createElement("button");
+    fallback.className = "choice";
+    fallback.textContent = "Return to the crossroads";
+    fallback.onclick = () => {
+      showEvent("road_hub");
+      addLog("You seek another path.");
+      saveGame();
+      render();
+    };
+    box.appendChild(fallback);
+    return;
+  }
+
+  available.forEach((choice) => {
+    const btn = document.createElement("button");
+    btn.className = "choice";
+    btn.textContent = choice.text;
+    btn.onclick = () => choose(choice);
+    box.appendChild(btn);
+  });
+}
+
+function render() {
+  const ev = STORY[state.currentEventId] || STORY.intro;
+  el("eventTitle").textContent = ev.title;
+  el("location").textContent = ev.location || "";
+  el("description").textContent = ev.text || "";
+  el("flags").textContent = state.lastRoll || "";
+
+  el("status").innerHTML = `
+    <div class="list">
+      <div class="item">Level ${state.level} | XP ${state.xp}/${state.xpToNext}</div>
+      <div class="item">HP: ${state.hp} / ${state.maxHp}</div>
+      <div class="item">Strength: ${statValue("Strength")}</div>
+      <div class="item">Dexterity: ${statValue("Dexterity")}</div>
+      <div class="item">Intelligence: ${statValue("Intelligence")}</div>
+      <div class="item">Constitution: ${statValue("Constitution")}</div>
+      <div class="item">Luck: ${statValue("Luck")}</div>
+      <div class="item">Charisma: ${statValue("Charisma")}</div>
+      <div class="item">Resolve: ${statValue("Resolve")}</div>
+      <div class="item">Reputation: ${state.reputation || 0}</div>
+    </div>
+  `;
+
+  el("relationships").innerHTML = Object.entries(state.relationships)
+    .map(([k, v]) => `<div class="rel">${NPCS[k]?.name || k}: ${v}</div>`)
+    .join("") || "<div class='rel'>No relationships yet</div>";
+
+  el("quests").innerHTML = state.quests.length
+    ? state.quests.map((q) => `<div class="quest">${q.name} — ${q.state}${q.stage ? ` (Stage ${q.stage})` : ""}</div>`).join("")
+    : "<div class='quest'>No active quests</div>";
+
+  el("inventory").innerHTML = state.inventory.length
+    ? state.inventory.map((i) => `<div class="item">${i}</div>`).join("")
+    : "<div class='item'>Empty</div>";
+
+  el("gold").innerHTML = `<div class="item">${state.gold} gold</div>`;
+
+  el("memory").innerHTML = state.memories.length
+    ? state.memories.map((m) => `<div class="memory-item">${m.text}</div>`).join("")
+    : "<div class='memory-item'>Nothing yet</div>";
+
+  el("log").innerHTML = state.log.map((t) => `<div>${t}</div>`).join("");
+
+  renderChoices(ev);
+  renderNotifications();
+}
+
+function renderNotifications() {
+  let box = document.getElementById("notifications");
+  if (!box) {
+    box = document.createElement("div");
+    box.id = "notifications";
+    box.className = "notifications";
+    document.querySelector(".inventory-panel").appendChild(box);
+  }
+  box.innerHTML = state.notifications.map((n) => `<div class="item">${n}</div>`).join("");
+}
+
+function saveGame() {
+  try {
+    localStorage.setItem(STATE_KEY, JSON.stringify(state));
+  } catch {
+    notify("Save failed.");
+  }
+}
+
+function normalizeState(loaded) {
+  const base = defaultState();
+  const merged = { ...base, ...loaded };
+
+  merged.stats = { ...base.stats, ...(loaded.stats || {}) };
+  merged.baseStats = { ...base.baseStats, ...(loaded.baseStats || {}) };
+  merged.relationships = { ...base.relationships, ...(loaded.relationships || {}) };
+  merged.equipment = { ...base.equipment, ...(loaded.equipment || {}) };
+
+  merged.quests = Array.isArray(loaded.quests) ? loaded.quests.filter((q) => q && q.id) : [];
+  merged.flags = Array.isArray(loaded.flags) ? loaded.flags.filter((flag) => typeof flag === "string" && flag.length > 0) : [];
+  merged.memories = Array.isArray(loaded.memories) ? loaded.memories.filter((m) => m && typeof m.key === "string" && m.key.length > 0) : [];
+  merged.inventory = Array.isArray(loaded.inventory) ? loaded.inventory.filter((item) => typeof item === "string" && item.length > 0) : ["Ragged Blade"];
+  if (!merged.inventory.length) merged.inventory = ["Ragged Blade"];
+  merged.notifications = Array.isArray(loaded.notifications) ? loaded.notifications.filter((n) => typeof n === "string" && n.length > 0) : [];
+  merged.log = Array.isArray(loaded.log) ? loaded.log.filter((entry) => typeof entry === "string" && entry.length > 0) : ["Game loaded."];
+  merged.lastRoll = typeof loaded.lastRoll === "string" ? loaded.lastRoll : "";
+  merged.currentEventId = STORY[loaded.currentEventId] ? loaded.currentEventId : "intro";
+
+  merged.maxHp = Number.isFinite(loaded.maxHp) ? Math.max(1, loaded.maxHp) : base.maxHp;
+  merged.hp = Number.isFinite(loaded.hp) ? Math.max(0, Math.min(merged.maxHp, loaded.hp)) : base.hp;
+  merged.gold = Number.isFinite(loaded.gold) ? Math.max(0, loaded.gold) : base.gold;
+  merged.level = Number.isFinite(loaded.level) ? Math.max(1, loaded.level) : base.level;
+  merged.xp = Number.isFinite(loaded.xp) ? Math.max(0, loaded.xp) : base.xp;
+  merged.xpToNext = Number.isFinite(loaded.xpToNext) ? Math.max(5, loaded.xpToNext) : base.xpToNext;
+  merged.reputation = Number.isFinite(loaded.reputation) ? loaded.reputation : base.reputation;
+  merged.statusEffects = Array.isArray(loaded.statusEffects) ? loaded.statusEffects : [];
+
+  return merged;
+}
+
+function loadGame() {
+  try {
+    const raw = localStorage.getItem(STATE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object") return null;
+    return normalizeState(parsed);
+  } catch {
+    return null;
+  }
+}
+
+function safeLoad() {
+  const loaded = loadGame();
+  if (!loaded) return;
+  state = loaded;
+  addLog("Game loaded.");
+  saveGame();
+  render();
+}
+
+validateStoryGraph();
+
+el("saveBtn").onclick = () => {
+  saveGame();
+  addLog("Game saved.");
+  render();
+};
+
+el("loadBtn").onclick = () => {
+  safeLoad();
+};
+
+el("newGameBtn").onclick = startNewGame;
+
+safeLoad();
+if (!state.currentEventId || !STORY[state.currentEventId]) state.currentEventId = "intro";
+render();
