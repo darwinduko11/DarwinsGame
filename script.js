@@ -528,6 +528,11 @@ const SCENE_MAP = {
 function validateStoryGraph() {
   const errors = [];
   const ids = new Set(Object.keys(STORY));
+  const categories = {
+    regions: CONTENT.regions,
+    quests: CONTENT.quests,
+    npcArcs: CONTENT.npcArcs
+  };
 
   for (const [id, ev] of Object.entries(STORY)) {
     if (!ev || ev.id !== id) errors.push(`Event key "${id}" has missing or mismatched id field.`);
@@ -570,6 +575,14 @@ function validateStoryGraph() {
   const unreachable = [...inbound.entries()].filter(([id, count]) => count === 0 && id !== "intro");
   if (unreachable.length) {
     console.warn("[Ruinfall] Potentially unreachable events:", unreachable.map(([id]) => id));
+  }
+
+  for (const [groupName, group] of Object.entries(categories)) {
+    for (const [id, entry] of Object.entries(group || {})) {
+      if (!entry || entry.id !== id) {
+        console.warn(`[Ruinfall] Content metadata mismatch in ${groupName}: "${id}"`);
+      }
+    }
   }
 
   return { errors, unreachable };
