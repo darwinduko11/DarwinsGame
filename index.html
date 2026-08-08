@@ -1,182 +1,71 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
   <head>
-    <title>Capybara Scrapbook</title>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Ruinfall Roguelike RPG</title>
     <link rel="stylesheet" href="styles.css" />
-    <link rel="manifest" href="manifest.json" />
   </head>
   <body>
-    <div class="page">
-      <header class="hero">
-        <img
-          class="logo"
-          src="https://uploads.onecompiler.io/44xe7d6x4/1786006581039/fe905bc6-3de3-4e18-a6b0-848beea7dc13.jpg"
-          alt="Capybara logo"
-        />
-        <div class="hero-text">
-          <h1>Capybara Scrapbook</h1>
-          <p>A cozy place for memories, photos, and soft little moments.</p>
+    <div class="background"></div>
+    <div class="app">
+      <header class="topbar">
+        <div>
+          <h1>Ruinfall</h1>
+          <p class="subtitle">A dark fantasy choice-driven roguelike</p>
         </div>
-
-        <button id="themeToggle" class="theme-toggle" type="button" aria-label="toggle theme">🌙</button>
+        <div class="save-actions">
+          <button id="saveBtn">Save</button>
+          <button id="loadBtn">Load</button>
+          <button id="newGameBtn">New Game</button>
+        </div>
       </header>
 
-      <nav class="tabs" aria-label="page sections">
-        <a href="#home">Home</a>
-        <a href="#gallery">Photo Wall</a>
-        <a href="#music">Music</a>
-      </nav>
+      <main class="layout">
+        <aside class="panel stats-panel">
+          <h2>Character</h2>
+          <div id="status"></div>
 
-      <main>
-        <section id="home" class="home-section">
-          <div class="section-card intro-card">
-            <h2>welcome home</h2>
-            <p>
-              this is your cozy capybara scrapbook — a soft space for memories, cute photos, and peaceful vibes.
-            </p>
-            <div class="home-actions">
-              <a class="photo-action" href="#gallery">go to photo wall</a>
-              <a class="photo-action" href="#music">go to music</a>
-            </div>
+          <h3>Relationships</h3>
+          <div id="relationships"></div>
+
+          <h3>Quests</h3>
+          <div id="quests"></div>
+        </aside>
+
+        <section class="panel story-panel">
+          <div class="story-meta">
+            <span id="location"></span>
+            <span id="flags"></span>
           </div>
 
-          <div class="section-card upload-card">
-            <h2>add memories</h2>
-            <p>choose photos from your device and add them to the wall below.</p>
-            <label class="upload-btn">
-              upload photos
-              <input id="photoUpload" type="file" accept="image/*" multiple />
-            </label>
-            <p id="uploadStatus" class="upload-status" aria-live="polite"></p>
+          <h2 id="eventTitle"></h2>
+          <div id="diceBox" class="dice-box hidden">
+            <div class="dice-label">Rolling D20...</div>
+            <div id="diceResult" class="dice-result">0</div>
           </div>
+          <p id="description" class="story-text"></p>
 
-          <div class="section-card cozy-gallery">
-            <h2>cozy gallery</h2>
-            <div class="featured-grid">
-              <img loading="lazy" src="https://images.unsplash.com/photo-1521191266379-7d1ccff0f8a8?auto=format&fit=crop&w=800&q=80" alt="Featured cozy photo 1" />
-              <img loading="lazy" src="https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=800&q=80" alt="Featured cozy photo 2" />
-              <img loading="lazy" src="https://images.unsplash.com/photo-1519681393784-d120267933ba?auto=format&fit=crop&w=800&q=80" alt="Featured cozy photo 3" />
-            </div>
+          <div id="choices" class="choices"></div>
+
+          <div class="log-wrap">
+            <h3>Journal</h3>
+            <div id="log" class="log"></div>
           </div>
         </section>
 
-        <section id="gallery" class="gallery-section">
-          <div class="section-header">
-            <div class="section-header-top">
-              <div>
-                <h2>photo wall</h2>
-                <p id="photoCounter">testing with 100 photos for now</p>
-              </div>
-              <div class="header-actions">
-                <button id="exportBtn" class="photo-action" type="button">export backup</button>
-                <label class="photo-action import-btn" tabindex="0">
-                  import backup
-                  <input id="importInput" type="file" accept="application/json" />
-                </label>
-                <button id="bulkActionBtn" class="photo-action" type="button" disabled>bulk actions</button>
-              </div>
-            </div>
+        <aside class="panel inventory-panel">
+          <h2>Inventory</h2>
+          <div id="inventory"></div>
 
-            <div class="gallery-controls" aria-label="photo controls">
-              <label class="control-group">
-                <span>search</span>
-                <input id="searchInput" type="search" placeholder="find a memory..." />
-              </label>
+          <h3>Gold</h3>
+          <div id="gold"></div>
 
-              <label class="control-group">
-                <span>sort</span>
-                <select id="sortSelect">
-                  <option value="newest">newest first</option>
-                  <option value="oldest">oldest first</option>
-                  <option value="favorites">favorites first</option>
-                </select>
-              </label>
-
-              <label class="control-group">
-                <span>tag</span>
-                <input id="tagInput" type="text" placeholder="trip, family, pets..." />
-              </label>
-
-              <label class="control-group checkbox-group">
-                <span>filter</span>
-                <input id="favoritesOnly" type="checkbox" />
-                <span>favorites only</span>
-              </label>
-            </div>
-          </div>
-
-          <div id="dropZone" class="drop-zone" tabindex="0" aria-label="drag and drop upload area">
-            drag and drop photos here
-          </div>
-
-          <div id="bulkBar" class="bulk-bar" hidden>
-            <span id="bulkCount">0 selected</span>
-            <button id="bulkFavoriteBtn" class="photo-action" type="button">toggle favorite</button>
-            <button id="bulkDeleteBtn" class="photo-action" type="button">delete selected</button>
-            <button id="bulkClearBtn" class="photo-action" type="button">clear selection</button>
-          </div>
-
-          <div id="photoWall" class="photo-wall" aria-live="polite"></div>
-          <div id="undoBar" class="undo-bar" hidden>
-            <span id="undoText"></span>
-            <button id="undoBtn" class="photo-action" type="button">undo</button>
-          </div>
-        </section>
-
-        <section id="music" class="music-section">
-          <div class="section-card music-card">
-            <div class="music-header">
-              <div>
-                <h2>music</h2>
-                <p>add your own private songs here using direct audio files or safe non-ad links.</p>
-              </div>
-              <a class="photo-action music-jump-btn" href="#home">back to home</a>
-            </div>
-
-            <div class="music-player">
-              <audio id="audioPlayer" preload="none"></audio>
-
-              <div class="music-controls">
-                <button id="playPauseBtn" class="photo-action" type="button">play</button>
-                <button id="prevTrackBtn" class="photo-action" type="button">prev</button>
-                <button id="nextTrackBtn" class="photo-action" type="button">next</button>
-                <button id="loopBtn" class="photo-action" type="button">loop off</button>
-              </div>
-
-              <label class="control-group">
-                <span>volume</span>
-                <input id="volumeSlider" type="range" min="0" max="1" step="0.01" value="0.7" />
-              </label>
-
-              <label class="upload-btn">
-                add songs
-                <input id="musicUpload" type="file" accept="audio/*" multiple />
-              </label>
-
-              <label class="control-group">
-                <span>playlist source url</span>
-                <input id="musicUrlInput" type="url" placeholder="https://example.com/song.mp3" />
-              </label>
-              <button id="addUrlBtn" class="photo-action" type="button">add url song</button>
-
-              <p id="nowPlaying" class="upload-status" aria-live="polite">nothing playing yet.</p>
-            </div>
-
-            <div id="playlist" class="playlist"></div>
-          </div>
-        </section>
+          <h3>Memory</h3>
+          <div id="memory"></div>
+        </aside>
       </main>
     </div>
-
-    <dialog id="lightbox" class="lightbox">
-      <div class="lightbox-nav">
-        <button id="prevLightboxBtn" class="photo-action" type="button">prev</button>
-        <button id="nextLightboxBtn" class="photo-action" type="button">next</button>
-      </div>
-      <button id="closeLightbox" class="lightbox-close" type="button" aria-label="close image">×</button>
-      <img id="lightboxImage" alt="" />
-      <p id="lightboxCaption"></p>
-    </dialog>
 
     <script src="script.js"></script>
   </body>
