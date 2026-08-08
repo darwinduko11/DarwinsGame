@@ -2,22 +2,26 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Ruinfall Roguelike RPG</title>
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
     <div class="background"></div>
+    <div class="ambient ambient-1"></div>
+    <div class="ambient ambient-2"></div>
+
     <div class="app">
-      <header class="topbar">
-        <div>
+      <header class="topbar panel">
+        <div class="brand">
           <h1>Ruinfall</h1>
           <p class="subtitle">A dark fantasy choice-driven roguelike</p>
         </div>
         <div class="save-actions">
           <button id="saveBtn">Save</button>
           <button id="loadBtn">Load</button>
-          <button id="newGameBtn">New Game</button>
+          <button id="newGameBtn" class="primary">New Game</button>
         </div>
       </header>
 
