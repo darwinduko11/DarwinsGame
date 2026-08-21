@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#4f46e5">
+  <title>Teacher's Study Desk</title>
+  <link rel="stylesheet" href="teacher.css">
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <p class="eyebrow">Teacher's Study Desk</p>
+      <h1>Good day, <span id="teacherName">Teacher</span> 👋</h1>
+      <p id="today"></p>
+    </div>
+    <button id="themeToggle" class="icon-button" title="Toggle dark mode">🌙</button>
+  </header>
+
+  <main class="container">
+    <section class="welcome-card">
+      <div>
+        <p class="eyebrow">Your daily teaching space</p>
+        <h2>Plan lessons, track progress, and help every student grow.</h2>
+        <p>Everything is saved in this browser and works offline.</p>
+      </div>
+      <div class="welcome-icon">📚</div>
+    </section>
+
+    <section class="stats-grid">
+      <div class="stat-card"><span>Students today</span><strong id="studentCount">10</strong><small>Daily teaching list</small></div>
+      <div class="stat-card"><span>Completed tasks</span><strong id="completedCount">0</strong><small>Keep up the great work</small></div>
+      <div class="stat-card"><span>Open tasks</span><strong id="openCount">0</strong><small>Things to remember</small></div>
+      <div class="stat-card"><span>Current time</span><strong id="currentTime">--:--</strong><small id="connectionStatus">Offline-ready</small></div>
+    </section>
+
+    <div class="content-grid">
+      <section class="panel">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">Daily students</p>
+            <h2>Teaching list</h2>
+          </div>
+          <button id="resetStudents" class="text-button">Reset</button>
+        </div>
+        <p class="muted">Record whether each student practiced reading or writing.</p>
+        <div id="studentList" class="student-list"></div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">Remember something</p>
+            <h2>Quick task</h2>
+          </div>
+        </div>
+        <form id="taskForm" class="task-form">
+          <input id="taskInput" type="text" placeholder="Example: Prepare phonics cards" required>
+          <div class="form-row">
+            <select id="taskType">
+              <option>Homework</option>
+              <option>Lesson preparation</option>
+              <option>Reminder</option>
+            </select>
+            <select id="taskPriority">
+              <option>Normal priority</option>
+              <option>High priority</option>
+            </select>
+          </div>
+          <button class="primary-button" type="submit">＋ Add task</button>
+        </form>
+        <div id="taskList" class="task-list"></div>
+      </section>
+    </div>
+
+    <section class="panel">
+      <div class="panel-heading">
+        <div>
+          <p class="eyebrow">Useful classroom helpers</p>
+          <h2>Language practice tools</h2>
+        </div>
+      </div>
+
+      <div class="tool-tabs">
+        <button class="tool-tab active" data-tool="pronouns">Pronouns</button>
+        <button class="tool-tab" data-tool="phonetics">Phonetics</button>
+        <button class="tool-tab" data-tool="grammar">Grammar</button>
+      </div>
+
+      <div id="pronouns" class="tool-content active">
+        <div class="tool-intro">
+          <h3>Pronoun practice</h3>
+          <p>Ask the student to replace the bold name with the correct pronoun.</p>
+        </div>
+        <div class="practice-box">
+          <strong id="pronounQuestion">Maria is reading. ___ is reading.</strong>
+          <button id="newPronoun" class="secondary-button">New question</button>
+        </div>
+      </div>
+
+      <div id="phonetics" class="tool-content">
+        <div class="tool-intro">
+          <h3>Phonics and sounds</h3>
+          <p>Choose a sound and ask the student to say words that begin with it.</p>
+        </div>
+        <div class="sound-grid" id="soundGrid">
+          <button data-sound="b">B /b/</button>
+          <button data-sound="m">M /m/</button>
+          <button data-sound="s">S /s/</button>
+          <button data-sound="t">T /t/</button>
+          <button data-sound="sh">SH /ʃ/</button>
+          <button data-sound="ch">CH /tʃ/</button>
+        </div>
+        <div id="soundResult" class="practice-box">Choose a sound to begin.</div>
+      </div>
+
+      <div id="grammar" class="tool-content">
+        <div class="tool-intro">
+          <h3>Parts of speech</h3>
+          <p>Use these simple examples when teaching grammar.</p>
+        </div>
+        <div class="grammar-cards">
+          <article><span class="badge noun">Noun</span><h3>person, place, or thing</h3><p>teacher · school · book</p></article>
+          <article><span class="badge verb">Verb</span><h3>an action word</h3><p>read · write · jump</p></article>
+          <article><span class="badge adjective">Adjective</span><h3>describes a noun</h3><p>kind · bright · small</p></article>
+          <article><span class="badge adverb">Adverb</span><h3>describes an action</h3><p>quickly · quietly · carefully</p></article>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel notes-panel">
+      <div class="panel-heading">
+        <div>
+          <p class="eyebrow">Teaching notes</p>
+          <h2>Save a quick note</h2>
+        </div>
+        <span class="saved-message" id="savedMessage"></span>
+      </div>
+      <textarea id="notes" placeholder="Write ideas, observations, or tomorrow's lesson plan..."></textarea>
+    </section>
+  </main>
+
+  <footer>Teacher's Study Desk · Your information stays on this device</footer>
+  <script src="teacher.js"></script>
+</body>
+</html>
