@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#4f46e5">
   <title>Teacher's Study Desk</title>
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="css teacher">
 </head>
 <body>
   <header class="topbar">
@@ -141,6 +141,6 @@
   </main>
 
   <footer>Teacher's Study Desk · Your information stays on this device</footer>
-  <script src="script.js"></script>
+  <script src="js script teacher"></script>
 </body>
 </html>
